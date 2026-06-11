@@ -1,3 +1,4 @@
+// email_exp: 
 /////////////////////
 /// input devices ///
 /////////////////////
@@ -43,7 +44,20 @@
 
 #include <DHT.h>
 
+#include <Stepper.h>
+#define STEPS_PER_REVOLUTION 2024
+#define STEPS_PER_DEGREE (STEPS_PER_REVOLUTION / 360.0)
+#define DEGREES_PER_STEP (360.0 / STEPS_PER_REVOLUTION)
+#define STEPPER_SPEED 15 // RPM
+Stepper stepper(STEPS_PER_REVOLUTION, 8, 9, 10, 11);
+
+#include <Servo.h>
+#define SERVO_PIN 7
+Servo servo;
+
 DHT dht(DHT_PIN, DHT_TYPE);
+
+int turn_deg[] = {15, 10, 5, 3, 1};
 
 //////////////////////////
 /// volatile variables ///
@@ -72,18 +86,19 @@ void setup()
   pinMode(FAN_PIN, OUTPUT);
   pinMode(MOTOR_PIN, OUTPUT);
   dht.begin();
+  stepper.setSpeed(STEPPER_SPEED);
+  servo.attach(SERVO_PIN);
+  servo.write(0); // servo init
 }
 
 void loop()
 {
   int sw_value = digitalRead(SW_PIN);
 
-  // read the LDR value and print it to the serial monitor
   int ldr_value = analogRead(LDR_PIN);
   Serial.print("LDR Value: ");
   Serial.println(ldr_value);
 
-  // read the DHT sensor values and print them to the serial monitor
   float temperature = dht.readTemperature();
   float humidity = dht.readHumidity();
   Serial.print("Temperature: ");
@@ -92,7 +107,6 @@ void loop()
   Serial.print(humidity);
   Serial.println(" %");
 
-  // control the fan based on the temperature
   if (temperature > TEMP_THRESHOLD)
   {
     analogWrite(FAN_PIN, FAN_SPEED_HIGH);
@@ -104,12 +118,11 @@ void loop()
     digitalWrite(MOTOR_PIN, LOW);
   }
 
-  // check if the switch state has changed and print it to the serial monitor
   if (sw_state_pending)
   {
     Serial.print("Switch State: ");
     Serial.println(sw_state ? "ON" : "OFF");
-    sw_state_pending = LOW; // reset the pending state after processing
+    sw_state_pending = LOW;
   }
 
   if (ldr_value > LDR_THRESHOLD_RISING && sw_state == HIGH) { analogWrite(LED_PIN, LED_BRIGHTNESS_HIGH); }
@@ -118,5 +131,65 @@ void loop()
   
   if (sw_state == LOW && sw_state_pending != sw_state) { sw_state_pending = LOW; }
   
+  angleSolar_horizontal();
+  angleSolar_vertical();
+
   delay(MAIN_REFRESH_RATE);
+}
+
+
+int getSolarVoltage()
+{
+  int solar_voltage_value = analogRead(SOLAR_VOLTAGE_PIN);
+  float solar_voltage = solar_voltage_value * SOLAR_VOLTAGE_SCALE;
+  Serial.print("Solar Voltage: ");
+  Serial.print(solar_voltage);
+  Serial.println(" V");
+  return solar_voltage;
+}
+void setServoAngle(int angle) { servo.write(angle); }
+void rotateStepper(int degrees)
+{
+  int steps = round(degrees * STEPS_PER_DEGREE);
+  stepper.step(steps);
+}
+
+void angleSolar_horizontal()
+{
+  int solar_voltage_cache[5] = {0, 0, 0, 0, 0};
+  solar_voltage_cache[0] = getSolarVoltage();
+
+  rotateStepper(turn_deg[0]);
+  delay(1000);
+  solar_voltage_cache[1] = getSolarVoltage();
+  if (solar_voltage_cache[1] < solar_voltage_cache[0]) { rotateStepper(-turn_deg[0]); return; }
+  delay(1000);
+  solar_voltage_cache[2] = getSolarVoltage();
+  if (solar_voltage_cache[2] < solar_voltage_cache[1]) { rotateStepper(-turn_deg[1]); return; }
+  delay(1000);
+  solar_voltage_cache[3] = getSolarVoltage();
+  if (solar_voltage_cache[3] < solar_voltage_cache[2]) { rotateStepper(-turn_deg[2]); return; }
+  delay(1000);
+  solar_voltage_cache[4] = getSolarVoltage();
+  if (solar_voltage_cache[4] < solar_voltage_cache[3]) { rotateStepper(-turn_deg[3]); return; }
+}
+
+void angleSolar_vertical()
+{
+  int solar_voltage_cache[5] = {0, 0, 0, 0, 0};
+  solar_voltage_cache[0] = getSolarVoltage();
+
+  setServoAngle(turn_deg[0]);
+  delay(1000);
+  solar_voltage_cache[1] = getSolarVoltage();
+  if (solar_voltage_cache[1] < solar_voltage_cache[0]) { setServoAngle(-turn_deg[0]); return; }
+  delay(1000);
+  solar_voltage_cache[2] = getSolarVoltage();
+  if (solar_voltage_cache[2] < solar_voltage_cache[1]) { setServoAngle(-turn_deg[1]); return; }
+  delay(1000);
+  solar_voltage_cache[3] = getSolarVoltage();
+  if (solar_voltage_cache[3] < solar_voltage_cache[2]) { setServoAngle(-turn_deg[2]); return; }
+  delay(1000);
+  solar_voltage_cache[4] = getSolarVoltage();
+  if (solar_voltage_cache[4] < solar_voltage_cache[3]) { setServoAngle(-turn_deg[3]); return; }
 }
