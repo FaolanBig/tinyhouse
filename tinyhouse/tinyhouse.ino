@@ -2,15 +2,20 @@
 /// input devices ///
 /////////////////////
 
+#define MAIN_REFRESH_RATE 1000
+
 #define LDR_PIN A0
-#define LDR_THRESHOLD 500
+#define LDR_THRESHOLD_RISING 500
+#define LDR_THRESHOLD_FALLING 300
 #define LDR_MAX 1023
 #define LDR_MIN 0
 #define LDR_SCALE 100.0
-#define LDR_READ_INTERVAL 1000
 #define SW_PIN 2
 #define DHT_PIN 4
 #define DHT_TYPE DHT11
+
+#define SOLAR_VOLTAGE_PIN A1
+#define SOLAR_VOLTAGE_SCALE 5.0 / 1023.0
 
 //////////////////////
 /// output devices ///
@@ -28,6 +33,13 @@
 #define FAN_SPEED_LOW 63
 #define FAN_OFF 0
 #define TEMP_THRESHOLD 25
+
+#define LED_PIN 6
+#define LED_BRIGHTNESS_HIGH 255
+#define LED_BRIGHTNESS_LOW 63
+#define LED_OFF 0
+
+#define SERIAL_BAUD_RATE 9600
 
 #include <DHT.h>
 
@@ -51,7 +63,7 @@ void setup()
     sw_state = LOW;
     }, FALLING);
 
-  Serial.begin(9600);
+  Serial.begin(SERIAL_BAUD_RATE);
   pinMode(LDR_PIN, INPUT);
   // pinMode(H_BRIDGE_IN1, OUTPUT);
   // pinMode(H_BRIDGE_IN2, OUTPUT);
@@ -64,6 +76,8 @@ void setup()
 
 void loop()
 {
+  int sw_value = digitalRead(SW_PIN);
+
   // read the LDR value and print it to the serial monitor
   int ldr_value = analogRead(LDR_PIN);
   Serial.print("LDR Value: ");
@@ -98,5 +112,11 @@ void loop()
     sw_state_pending = LOW; // reset the pending state after processing
   }
 
-  delay(LDR_READ_INTERVAL); // wait for a while before reading again
+  if (ldr_value > LDR_THRESHOLD_RISING && sw_state == HIGH) { analogWrite(LED_PIN, LED_BRIGHTNESS_HIGH); }
+  else if (ldr_value < LDR_THRESHOLD_FALLING && sw_state == HIGH) { analogWrite(LED_PIN, LED_BRIGHTNESS_LOW); }
+  else { analogWrite(LED_PIN, LED_OFF); }
+  
+  if (sw_state == LOW && sw_state_pending != sw_state) { sw_state_pending = LOW; }
+  
+  delay(MAIN_REFRESH_RATE);
 }
