@@ -20,11 +20,13 @@
 // #define H_BRIDGE_IN2 3
 // #define H_BRIDGE_EN 8
 // #define H_BRIDGE_IN3 9
-#define M_SWITCH_PIN 3
-#define MotorSpeed 255
+#define MOTOR_PIN 3
+#define MOTOR_SPEED 255
 
-#define FAN_PIN 2
-#define FAN_SPEED 255
+#define FAN_PIN 5
+#define FAN_SPEED_HIGH 255
+#define FAN_SPEED_LOW 63
+#define FAN_OFF 0
 #define TEMP_THRESHOLD 25
 
 #include <DHT.h>
@@ -56,7 +58,7 @@ void setup()
   // pinMode(H_BRIDGE_EN, OUTPUT);
   // pinMode(H_BRIDGE_IN3, OUTPUT);
   pinMode(FAN_PIN, OUTPUT);
-  pinMode(M_SWITCH_PIN, OUTPUT);
+  pinMode(MOTOR_PIN, OUTPUT);
   dht.begin();
 }
 
@@ -79,13 +81,13 @@ void loop()
   // control the fan based on the temperature
   if (temperature > TEMP_THRESHOLD)
   {
-    analogWrite(FAN_PIN, FAN_SPEED);
-    digitalWrite(M_SWITCH_PIN, HIGH);
+    analogWrite(FAN_PIN, FAN_SPEED_HIGH);
+    digitalWrite(MOTOR_PIN, HIGH);
   }
   else
   {
-    analogWrite(FAN_PIN, LOW);
-    digitalWrite(M_SWITCH_PIN, LOW);
+    analogWrite(FAN_PIN, FAN_OFF);
+    digitalWrite(MOTOR_PIN, LOW);
   }
 
   // check if the switch state has changed and print it to the serial monitor
